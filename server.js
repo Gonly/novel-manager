@@ -152,15 +152,24 @@ async function saveNovelFile(buffer, originalName) {
 
 async function readNovelFile(identifier) {
   if (IS_VERCEL) {
-    console.log('[readNovelFile] fetching blob, url:', identifier?.substring(0, 120));
-    const resp = await fetch(identifier);
-    console.log('[readNovelFile] response status:', resp.status, 'ok:', resp.ok);
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      console.error('[readNovelFile] ERROR response body:', errText?.substring(0, 200));
-      throw new Error(`blob fetch failed: ${resp.status}`);
+    const { get } = require('@vercel/blob');
+    console.log('[readNovelFile] getting blob via SDK:', identifier?.substring(0, 120));
+    const result = await get(identifier, { access: 'private' });
+    if (!result) throw new Error('blob not found (get returned null)');
+    console.log('[readNovelFile] get OK, reading stream, url:', result.blob?.url?.substring(0, 80));
+    // Read the stream from get() result
+    const reader = result.stream.getReader();
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
     }
-    const buf = await resp.arrayBuffer();
+    const total = chunks.reduce((a, c) => a + c.length, 0);
+    const merged = new Uint8Array(total);
+    let pos = 0;
+    for (const chunk of chunks) { merged.set(chunk, pos); pos += chunk.length; }
+    const buf = merged.buffer;
     try {
       return new TextDecoder('utf-8', { fatal: true }).decode(buf);
     } catch {
