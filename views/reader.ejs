@@ -108,6 +108,7 @@
         reader.currentPage = data.page;
         reader.totalPages = data.total_pages;
         pageNumEl.textContent = data.page;
+        window.scrollTo(0, 0);
         updateUI();
         saveProgress();
       } catch (e) {
