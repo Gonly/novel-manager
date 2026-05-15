@@ -369,9 +369,13 @@ body {
     padding: 32px 36px;
     min-height: 60vh;
     line-height: 2;
-    white-space: pre-wrap;
+    white-space: normal;
     word-wrap: break-word;
     font-size: 18px;
+}
+.reader-content p {
+    text-indent: 2em;
+    margin: 0 0 .25em 0;
 }
 .reader-content.loading {
     opacity: .5;

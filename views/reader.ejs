@@ -102,7 +102,9 @@
         const resp = await fetch(`/api/book/${reader.bookId}/page/${pageNum}`);
         if (!resp.ok) throw new Error('Load failed');
         const data = await resp.json();
-        contentEl.textContent = data.content;
+        // 渲染段落：每段用 <p> 包裹，支持首行缩进
+        const paras = data.content.split('\n').filter(p => p.trim());
+        contentEl.innerHTML = paras.map(p => `<p>${p.replace(/^[\t ]+/, '')}</p>`).join('');
         reader.currentPage = data.page;
         reader.totalPages = data.total_pages;
         pageNumEl.textContent = data.page;
