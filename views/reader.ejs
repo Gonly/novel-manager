@@ -21,8 +21,21 @@
 
     <div class="reader-header">
       <div>
-        <h1><%= book.title %></h1>
+        <h1>
+          <%= book.title %>
+          <button class="fav-btn-inline <%= book.is_favorite ? 'on' : '' %>"
+                  id="favBtn" title="收藏" onclick="toggleFav()">❤</button>
+        </h1>
         <span class="book-author"><%= book.author || '佚名' %></span>
+        <span class="reader-stars" id="readerStars">
+          <% for (let i=1; i<=5; i++) { %>
+            <span class="star <%= i <= (book.rating||0) ? 'on' : '' %>"
+                  data-val="<%= i %>" onclick="setRating(<%= i %>)">★</span>
+          <% } %>
+          <% if (book.rating > 0) { %>
+            <span class="clear-rating" onclick="setRating(0)">✕</span>
+          <% } %>
+        </span>
       </div>
       <div class="reader-controls">
         <button id="themeToggle" title="切换日间/夜间模式">🌓 主题</button>
@@ -158,6 +171,42 @@
     document.getElementById('fontDec').addEventListener('click', () => applyFontSize(reader.fontSize - 2));
     document.getElementById('fontInc').addEventListener('click', () => applyFontSize(reader.fontSize + 2));
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+    // --- Favorite & Rating ---
+    window.toggleFav = async function() {
+      const btn = document.getElementById('favBtn');
+      try {
+        const resp = await fetch('/api/book/<%= book.id %>/favorite', { method: 'POST' });
+        const data = await resp.json();
+        btn.classList.toggle('on', data.is_favorite);
+      } catch (e) {}
+    };
+    window.setRating = async function(val) {
+      try {
+        const resp = await fetch('/api/book/<%= book.id %>/rating', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'rating=' + val
+        });
+        const data = await resp.json();
+        document.querySelectorAll('#readerStars .star').forEach((s, i) => {
+          s.classList.toggle('on', i < data.rating);
+        });
+        // Toggle clear button
+        let clearBtn = document.querySelector('#readerStars .clear-rating');
+        if (data.rating > 0) {
+          if (!clearBtn) {
+            const el = document.createElement('span');
+            el.className = 'clear-rating';
+            el.textContent = '✕';
+            el.onclick = function(){ setRating(0); };
+            document.getElementById('readerStars').appendChild(el);
+          }
+        } else if (clearBtn) {
+          clearBtn.remove();
+        }
+      } catch (e) {}
+    };
 
     // --- Touch / swipe support ---
     let touchStartX = 0;

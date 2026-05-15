@@ -51,6 +51,8 @@ async function initDatabase() {
         file_size   INTEGER DEFAULT 0,
         total_chars INTEGER DEFAULT 0,
         total_pages INTEGER DEFAULT 0,
+        rating      INTEGER DEFAULT 0,
+        is_favorite INTEGER DEFAULT 0,
         created_at  TEXT    DEFAULT (datetime('now','localtime')),
         updated_at  TEXT    DEFAULT (datetime('now','localtime'))
       )
@@ -65,6 +67,9 @@ async function initDatabase() {
         FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
       )
     `);
+    // Migrate existing tables — add columns if they don't exist
+    try { await remoteDb.execute("ALTER TABLE books ADD COLUMN rating INTEGER DEFAULT 0"); } catch {}
+    try { await remoteDb.execute("ALTER TABLE books ADD COLUMN is_favorite INTEGER DEFAULT 0"); } catch {}
   } else {
     const initSqlJs = require('sql.js');
     SQL = await initSqlJs();
@@ -78,8 +83,12 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, author TEXT DEFAULT '',
       description TEXT DEFAULT '', filename TEXT NOT NULL, file_size INTEGER DEFAULT 0,
       total_chars INTEGER DEFAULT 0, total_pages INTEGER DEFAULT 0,
+      rating INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now','localtime')),
       updated_at TEXT DEFAULT (datetime('now','localtime')))`);
+    // Migrate existing tables
+    try { localDb.run("ALTER TABLE books ADD COLUMN rating INTEGER DEFAULT 0"); } catch {}
+    try { localDb.run("ALTER TABLE books ADD COLUMN is_favorite INTEGER DEFAULT 0"); } catch {}
     localDb.run(`CREATE TABLE IF NOT EXISTS reading_progress (
       id INTEGER PRIMARY KEY AUTOINCREMENT, book_id INTEGER NOT NULL UNIQUE,
       current_page INTEGER DEFAULT 1, font_size INTEGER DEFAULT 18, theme TEXT DEFAULT 'light',
@@ -254,14 +263,17 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
+  const showFav = req.query.fav === '1';
   let books;
-  if (q) {
-    books = await dbAll("SELECT * FROM books WHERE title LIKE ? OR author LIKE ? ORDER BY updated_at DESC", [`%${q}%`, `%${q}%`]);
+  if (showFav) {
+    books = await dbAll("SELECT * FROM books WHERE is_favorite = 1 ORDER BY updated_at DESC");
+  } else if (q) {
+    books = await dbAll("SELECT * FROM books WHERE (title LIKE ? OR author LIKE ?) ORDER BY updated_at DESC", [`%${q}%`, `%${q}%`]);
   } else {
     books = await dbAll("SELECT * FROM books ORDER BY updated_at DESC");
   }
   books.forEach(b => b.coverColor = coverColorClass(b.id));
-  res.render('index', { books, q, formatSize });
+  res.render('index', { books, q, formatSize, showFav });
 });
 
 app.get('/book/add', (req, res) => {
@@ -397,6 +409,28 @@ app.route('/api/book/:id/progress')
     const progress = await getOrCreateProgress(book.id);
     res.json({ current_page: progress.current_page, font_size: progress.font_size, theme: progress.theme, total_pages: book.total_pages });
   });
+
+// -------------------------------------------------------------------------
+// Routes – Favorite & Rating
+// -------------------------------------------------------------------------
+
+/** POST /api/book/:id/favorite — Toggle favorite */
+app.post('/api/book/:id/favorite', async (req, res) => {
+  const book = await dbGet('SELECT * FROM books WHERE id = ?', [req.params.id]);
+  if (!book) return res.status(404).json({ error: 'not found' });
+  const newVal = book.is_favorite ? 0 : 1;
+  await dbRun('UPDATE books SET is_favorite = ? WHERE id = ?', [newVal, req.params.id]);
+  res.json({ id: book.id, is_favorite: newVal });
+});
+
+/** POST /api/book/:id/rating — Set rating (1-5, 0 to clear) */
+app.post('/api/book/:id/rating', async (req, res) => {
+  const book = await dbGet('SELECT * FROM books WHERE id = ?', [req.params.id]);
+  if (!book) return res.status(404).json({ error: 'not found' });
+  const rating = Math.max(0, Math.min(5, parseInt(req.body.rating) || 0));
+  await dbRun('UPDATE books SET rating = ? WHERE id = ?', [rating, req.params.id]);
+  res.json({ id: book.id, rating });
+});
 
 // -------------------------------------------------------------------------
 // Vercel export / local listen

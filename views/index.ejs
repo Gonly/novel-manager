@@ -19,25 +19,41 @@
 
   <main class="container">
 
-    <form class="search-bar" method="GET" action="/">
-      <input type="text" name="q" placeholder="搜索书名或作者…" value="<%= q %>">
-      <button type="submit">🔍 搜索</button>
-      <% if (q) { %>
-        <a href="/" class="btn btn-secondary" style="padding:10px 16px;">✕ 清除</a>
+    <!-- Search + filter bar -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap; padding:20px 0 0; align-items:center;">
+      <form class="search-bar" method="GET" action="/" style="padding:0; flex:1; min-width:200px;">
+        <input type="text" name="q" placeholder="搜索书名或作者…" value="<%= q %>">
+        <button type="submit">🔍 搜索</button>
+        <% if (q) { %>
+          <a href="/" class="btn btn-secondary" style="padding:10px 16px;">✕ 清除</a>
+        <% } %>
+      </form>
+      <a href="/?fav=1" class="btn <%= locals.showFav ? 'btn-primary' : 'btn-secondary' %>"
+         style="padding:10px 16px; font-size:.9rem; white-space:nowrap;">❤️ 只看收藏</a>
+      <% if (locals.showFav) { %>
+        <a href="/" class="btn btn-secondary" style="padding:10px 16px; font-size:.9rem;">显示全部</a>
       <% } %>
-    </form>
+    </div>
 
     <% if (books.length) { %>
     <div class="book-grid">
       <% books.forEach(function(book) { %>
-      <div class="book-card">
+      <div class="book-card" data-book-id="<%= book.id %>">
         <a href="/book/<%= book.id %>/read">
           <div class="book-cover <%= book.coverColor %>">
             <span class="cover-char"><%= book.title[0] %></span>
+            <button class="fav-btn <%= book.is_favorite ? 'on' : '' %>"
+                    data-id="<%= book.id %>" title="收藏"
+                    onclick="event.preventDefault(); event.stopPropagation(); toggleFav(this)">❤</button>
           </div>
           <div class="book-info">
             <div class="book-title" title="<%= book.title %>"><%= book.title %></div>
             <div class="book-author"><%= book.author || '佚名' %></div>
+            <div class="book-stars" data-rating="<%= book.rating || 0 %>">
+              <% for (let i=1; i<=5; i++) { %>
+                <span class="star <%= i <= (book.rating||0) ? 'on' : '' %>">★</span>
+              <% } %>
+            </div>
             <div class="book-meta">
               <span><%= book.total_pages %> 页</span>
               <span><%= formatSize(book.file_size) %></span>
@@ -60,6 +76,9 @@
       <% if (q) { %>
         <p>没有找到匹配「<%= q %>」的书籍</p>
         <p style="margin-top:12px;"><a href="/" class="btn btn-primary">返回书库</a></p>
+      <% } else if (locals.showFav) { %>
+        <p>还没有收藏的书籍</p>
+        <p style="margin-top:12px;"><a href="/" class="btn btn-primary">浏览全部书籍</a></p>
       <% } else { %>
         <p>书库还是空的</p>
         <p style="margin-top:12px;"><a href="/book/add" class="btn btn-primary">+ 新增第一本书</a></p>
@@ -74,5 +93,16 @@
   </footer>
 
   <script src="/static/js/main.js"></script>
+  <script>
+    // Toggle favorite
+    async function toggleFav(btn) {
+      const id = btn.dataset.id;
+      try {
+        const resp = await fetch('/api/book/' + id + '/favorite', { method: 'POST' });
+        const data = await resp.json();
+        btn.classList.toggle('on', data.is_favorite);
+      } catch (e) { /* silent */ }
+    }
+  </script>
 </body>
 </html>
