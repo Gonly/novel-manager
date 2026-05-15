@@ -154,7 +154,7 @@ async function readNovelFile(identifier) {
     try {
       // Try to refresh the signed URL via SDK
       const { get } = require('@vercel/blob');
-      const blob = await get(identifier);
+      const blob = await get(identifier, { access: 'private' });
       url = blob.downloadUrl || blob.url;
     } catch {}
     // Fetch content (url already contains auth token for private blobs)
