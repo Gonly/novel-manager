@@ -141,7 +141,7 @@ async function saveNovelFile(buffer, originalName) {
   const name = `${ts}_${originalName}`;
   if (IS_VERCEL) {
     const { put } = require('@vercel/blob');
-    const blob = await put(`novels/${name}`, buffer);
+    const blob = await put(`novels/${name}`, buffer, { access: 'private' });
     return blob.url;     // stored as full URL (含鉴权 token)
   }
   fs.writeFileSync(path.join(NOVELS_DIR, name), buffer);
