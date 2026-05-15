@@ -222,7 +222,8 @@ function cleanupText(text) {
       result.push(line);
     }
   }
-  return result.join('\n');
+  // 合并连续的多个换行为一个
+  return result.join('\n').replace(/\n{2,}/g, '\n');
 }
 
 function countDisplayChars(text) {
