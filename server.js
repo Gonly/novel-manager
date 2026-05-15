@@ -195,6 +195,36 @@ async function deleteNovelFile(identifier) {
 // Utilities
 // -------------------------------------------------------------------------
 
+/** 清理 txt 内容：去掉段落中间的硬换行 */
+function cleanupText(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.replace(/[\t ]+$/, '');
+    // 空行 = 段落分隔，保留
+    if (trimmed === '') {
+      result.push(line);
+      continue;
+    }
+    // 检查最后一个非空字符是否为标点
+    const last = trimmed.slice(-1);
+    const isPunct = /[。？！…—」』》】\)）"]/.test(last) || /[.!?")]/.test(last);
+    if (isPunct) {
+      // 标点结尾 = 段落结束，保留换行
+      result.push(line);
+    } else if (i + 1 < lines.length) {
+      // 非标点结尾 = 硬换行，合并到下一行
+      const next = lines[i + 1];
+      const spacer = /[\t ]$/.test(line) ? '' : '';
+      lines[i + 1] = line + spacer + next.replace(/^[\t ]+/, '');
+    } else {
+      result.push(line);
+    }
+  }
+  return result.join('\n');
+}
+
 function countDisplayChars(text) {
   return text.replace(/\n/g, '').replace(/\r/g, '').length;
 }
@@ -327,6 +357,8 @@ app.post('/book/add', (req, res) => {
       } else {
         contentStr = await readNovelFile(identifier);
       }
+      // 清洗：去掉段落中间的硬换行
+      contentStr = cleanupText(contentStr);
 
       const totalChars = countDisplayChars(contentStr);
       const pages = splitIntoPages(contentStr, CHARS_PER_PAGE);
@@ -395,7 +427,7 @@ app.get('/api/book/:id/page/:pageNum', async (req, res) => {
   if (!book) return res.status(404).json({ error: 'not found' });
   console.log('[api/page] book:', book.id, 'title:', book.title, 'filename:', (book.filename || '').substring(0, 120));
   try {
-    const content = await readNovelFile(book.filename);
+    const content = cleanupText(await readNovelFile(book.filename));
     const pages = splitIntoPages(content, CHARS_PER_PAGE);
     const pageNum = parseInt(req.params.pageNum);
     if (pageNum < 1 || pageNum > pages.length) return res.status(404).json({ error: 'page out of range' });
