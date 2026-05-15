@@ -31,8 +31,9 @@
 
       <form method="POST" action="/book/add" enctype="multipart/form-data">
         <div class="form-group">
-          <label for="title">书名 *</label>
-          <input type="text" id="title" name="title" value="<%= title %>" placeholder="输入书名" required>
+          <label for="title">书名</label>
+          <input type="text" id="title" name="title" value="<%= title %>" placeholder="选文件后自动填入，也可手动修改">
+          <small>不填则自动使用文件名（不含扩展名）</small>
         </div>
         <div class="form-group">
           <label for="author">作者</label>
@@ -60,5 +61,17 @@
   </footer>
 
   <script src="/static/js/main.js"></script>
+  <script>
+    // 选择文件后自动填入书名
+    document.getElementById('file').addEventListener('change', function(e) {
+      const titleInput = document.getElementById('title');
+      if (this.files.length && !titleInput.value.trim()) {
+        const name = this.files[0].name;
+        // Remove .txt extension (handle multiple dots)
+        const bookName = name.replace(/\.txt$/i, '');
+        titleInput.value = bookName;
+      }
+    });
+  </script>
 </body>
 </html>

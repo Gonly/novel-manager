@@ -2,3 +2,4 @@ node_modules/
 database.db
 novels/*.txt
 *.log
+.vercel

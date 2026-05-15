@@ -270,12 +270,16 @@ app.get('/book/add', (req, res) => {
 
 app.post('/book/add', (req, res) => {
   upload.single('file')(req, res, async (err) => {
-    const title = (req.body.title || '').trim();
+    let title = (req.body.title || '').trim();
     const author = (req.body.author || '').trim();
     const description = (req.body.description || '').trim();
     const errors = [];
 
     if (err) { errors.push(err.message || '文件上传失败'); return res.render('add', { errors, title, author, description }); }
+    // 书名留空则自动取文件名（不含扩展名）
+    if (!title && req.file) {
+      title = req.file.originalname.replace(/\.txt$/i, '');
+    }
     if (!title) errors.push('书名不能为空');
     if (!req.file) errors.push('请选择要上传的 txt 文件');
     if (errors.length) return res.render('add', { errors, title, author, description });
