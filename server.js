@@ -150,7 +150,11 @@ async function saveNovelFile(buffer, originalName) {
 
 async function readNovelFile(identifier) {
   if (IS_VERCEL) {
-    const resp = await fetch(identifier);
+    const { get } = require('@vercel/blob');
+    // get() refreshes the signed URL for private blobs
+    const blob = await get(identifier);
+    const resp = await fetch(blob.downloadUrl || blob.url);
+    if (!resp.ok) throw new Error(`blob fetch failed: ${resp.status}`);
     const buf = await resp.arrayBuffer();
     try {
       return new TextDecoder('utf-8', { fatal: true }).decode(buf);
@@ -384,7 +388,7 @@ app.get('/api/book/:id/page/:pageNum', async (req, res) => {
 
     res.json({ page: pageNum, total_pages: pages.length, content: pages[pageNum - 1], title: book.title, author: book.author });
   } catch (e) {
-    res.status(404).json({ error: 'file not found' });
+    res.status(500).json({ error: '无法读取文件，可能 Blob 链接已过期，请删除后重新上传' });
   }
 });
 
