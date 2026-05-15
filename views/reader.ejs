@@ -231,6 +231,14 @@
     document.getElementById('tapLeft').addEventListener('click', goPrev);
     document.getElementById('tapRight').addEventListener('click', goNext);
 
+    // --- Immersive reading: tap center to toggle UI ---
+    const readerPage = document.querySelector('.reader-page');
+    contentEl.addEventListener('click', function(e) {
+      // Only when not tapping on the left/right tap zones
+      if (e.target.closest('.reader-tap-zone')) return;
+      readerPage.classList.toggle('reading-mode');
+    });
+
     // --- Initial load ---
     loadPage(reader.currentPage);
 
