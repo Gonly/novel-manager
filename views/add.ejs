@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📖 新增书籍 - 小说管理站</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">📚 小说管理站</a>
+      <nav>
+        <a href="/">书库</a>
+        <a href="/book/add">+ 新增</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="form-page">
+      <h1>📖 新增书籍</h1>
+
+      <% if (errors.length) { %>
+      <ul class="errors">
+        <% errors.forEach(function(err) { %>
+        <li><%= err %></li>
+        <% }); %>
+      </ul>
+      <% } %>
+
+      <form method="POST" action="/book/add" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="title">书名 *</label>
+          <input type="text" id="title" name="title" value="<%= title %>" placeholder="输入书名" required>
+        </div>
+        <div class="form-group">
+          <label for="author">作者</label>
+          <input type="text" id="author" name="author" value="<%= author %>" placeholder="输入作者（可选）">
+        </div>
+        <div class="form-group">
+          <label for="description">简介</label>
+          <textarea id="description" name="description" placeholder="输入书籍简介（可选）"><%= description %></textarea>
+        </div>
+        <div class="form-group">
+          <label for="file">TXT 文件 *</label>
+          <input type="file" id="file" name="file" accept=".txt" required>
+          <small>仅支持 .txt 格式，最大 50MB</small>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">📤 上传并添加</button>
+          <a href="/" class="btn btn-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container"><span>📖 私人小说管理站</span></div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

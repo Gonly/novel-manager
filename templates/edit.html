@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}✏️ 编辑书籍 - 小说管理站{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <h1>✏️ 编辑《{{ book.title }}》</h1>
+
+    {% if errors %}
+    <ul class="errors">
+        {% for err in errors %}
+        <li>{{ err }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('edit_book', book_id=book.id) }}">
+        <div class="form-group">
+            <label for="title">书名 *</label>
+            <input type="text" id="title" name="title" value="{{ book.title }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="author">作者</label>
+            <input type="text" id="author" name="author" value="{{ book.author }}">
+        </div>
+
+        <div class="form-group">
+            <label for="description">简介</label>
+            <textarea id="description" name="description">{{ book.description }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>文件</label>
+            <p style="color: var(--text-dim); font-size: .9rem;">
+                📄 {{ book.filename }} （{{ '%d'|format(book.file_size / 1024) }} KB，{{ book.total_pages }} 页）
+            </p>
+            <small>如需更换文件，请删除后重新添加</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 保存修改</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

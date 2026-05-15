@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📚 书库 - 小说管理站</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">📚 小说管理站</a>
+      <nav>
+        <a href="/">书库</a>
+        <a href="/book/add">+ 新增</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <form class="search-bar" method="GET" action="/">
+      <input type="text" name="q" placeholder="搜索书名或作者…" value="<%= q %>">
+      <button type="submit">🔍 搜索</button>
+      <% if (q) { %>
+        <a href="/" class="btn btn-secondary" style="padding:10px 16px;">✕ 清除</a>
+      <% } %>
+    </form>
+
+    <% if (books.length) { %>
+    <div class="book-grid">
+      <% books.forEach(function(book) { %>
+      <div class="book-card">
+        <a href="/book/<%= book.id %>/read">
+          <div class="book-cover <%= book.coverColor %>">
+            <span class="cover-char"><%= book.title[0] %></span>
+          </div>
+          <div class="book-info">
+            <div class="book-title" title="<%= book.title %>"><%= book.title %></div>
+            <div class="book-author"><%= book.author || '佚名' %></div>
+            <div class="book-meta">
+              <span><%= book.total_pages %> 页</span>
+              <span><%= formatSize(book.file_size) %></span>
+            </div>
+          </div>
+        </a>
+        <div class="book-card-actions">
+          <a href="/book/<%= book.id %>/edit">✏️ 编辑</a>
+          <form method="POST" action="/book/<%= book.id %>/delete"
+                onsubmit="return confirm('确定要删除《<%= book.title %>》吗？');">
+            <button type="submit" class="delete-btn">🗑 删除</button>
+          </form>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+    <% } else { %>
+    <div class="empty-state">
+      <span class="big-icon">📖</span>
+      <% if (q) { %>
+        <p>没有找到匹配「<%= q %>」的书籍</p>
+        <p style="margin-top:12px;"><a href="/" class="btn btn-primary">返回书库</a></p>
+      <% } else { %>
+        <p>书库还是空的</p>
+        <p style="margin-top:12px;"><a href="/book/add" class="btn btn-primary">+ 新增第一本书</a></p>
+      <% } %>
+    </div>
+    <% } %>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container"><span>📖 私人小说管理站</span></div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

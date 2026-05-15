@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📖 <%= book.title %> - 小说管理站</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="<%= progress.theme === 'dark' ? 'reader-dark' : '' %>">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">📚 小说管理站</a>
+      <nav>
+        <a href="/">书库</a>
+        <a href="/book/add">+ 新增</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="reader-page">
+
+    <div class="reader-header">
+      <div>
+        <h1><%= book.title %></h1>
+        <span class="book-author"><%= book.author || '佚名' %></span>
+      </div>
+      <div class="reader-controls">
+        <button id="themeToggle" title="切换日间/夜间模式">🌓 主题</button>
+        <button id="fontDec" title="缩小字体">A−</button>
+        <span id="fontSizeLabel" style="font-size:.85rem;color:var(--text-dim);"><%= progress.font_size %></span>
+        <button id="fontInc" title="放大字体">A+</button>
+        <a href="/" class="btn btn-secondary" style="padding:6px 14px;font-size:.85rem;">← 书库</a>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"
+           style="width:<%= totalPages > 0 ? (progress.current_page / totalPages) * 100 : 0 %>%"></div>
+    </div>
+
+    <div class="reader-content-wrap">
+      <div class="reader-tap-zone left" id="tapLeft" title="上一页"></div>
+      <div class="reader-tap-zone right" id="tapRight" title="下一页"></div>
+      <div class="reader-content size-<%= progress.font_size %>" id="readerContent"
+           data-book-id="<%= book.id %>" data-current-page="<%= progress.current_page %>"
+           data-font-size="<%= progress.font_size %>" data-theme="<%= progress.theme %>"
+           data-total-pages="<%= totalPages %>">
+        <div style="text-align:center;padding:60px 0;color:var(--text-dim);">⏳ 加载中…</div>
+      </div>
+    </div>
+
+    <div class="reader-nav">
+      <button id="prevPage" disabled>← 上一页</button>
+      <span class="page-indicator">
+        第 <span id="pageNum"><%= progress.current_page %></span> / <%= totalPages %> 页
+      </span>
+      <button id="nextPage">下一页 →</button>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container"><span>📖 私人小说管理站</span></div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+  <script>
+    // Reader state
+    const reader = {
+      bookId: <%= book.id %>,
+      currentPage: <%= progress.current_page %>,
+      totalPages: <%= totalPages %>,
+      fontSize: <%= progress.font_size %>,
+      theme: '<%= progress.theme %>',
+      isLoading: false
+    };
+
+    const contentEl = document.getElementById('readerContent');
+    const pageNumEl = document.getElementById('pageNum');
+    const progressFill = document.getElementById('progressFill');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+
+    async function loadPage(pageNum) {
+      if (reader.isLoading) return;
+      reader.isLoading = true;
+      contentEl.classList.add('loading');
+      try {
+        const resp = await fetch(`/api/book/${reader.bookId}/page/${pageNum}`);
+        if (!resp.ok) throw new Error('Load failed');
+        const data = await resp.json();
+        contentEl.textContent = data.content;
+        reader.currentPage = data.page;
+        reader.totalPages = data.total_pages;
+        pageNumEl.textContent = data.page;
+        updateUI();
+        saveProgress();
+      } catch (e) {
+        contentEl.innerHTML = '<div style="text-align:center;padding:60px 0;color:#c0392b;">❌ 加载失败，请重试</div>';
+      } finally {
+        reader.isLoading = false;
+        contentEl.classList.remove('loading');
+      }
+    }
+
+    function updateUI() {
+      prevBtn.disabled = reader.currentPage <= 1;
+      nextBtn.disabled = reader.currentPage >= reader.totalPages;
+      const pct = reader.totalPages > 0 ? (reader.currentPage / reader.totalPages) * 100 : 0;
+      progressFill.style.width = pct + '%';
+      pageNumEl.textContent = reader.currentPage;
+    }
+
+    async function saveProgress() {
+      try {
+        await fetch(`/api/book/${reader.bookId}/progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            current_page: reader.currentPage,
+            font_size: reader.fontSize,
+            theme: reader.theme
+          })
+        });
+      } catch (e) { /* silent */ }
+    }
+
+    function goPrev() { if (reader.currentPage > 1) loadPage(reader.currentPage - 1); }
+    function goNext() { if (reader.currentPage < reader.totalPages) loadPage(reader.currentPage + 1); }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft' || e.key === 'a') goPrev();
+      else if (e.key === 'ArrowRight' || e.key === 'd') goNext();
+    });
+
+    function applyFontSize(size) {
+      reader.fontSize = Math.max(14, Math.min(32, size));
+      const sizes = [14, 16, 18, 20, 22, 24, 28, 32];
+      const closest = sizes.reduce((prev, curr) =>
+        Math.abs(curr - reader.fontSize) < Math.abs(prev - reader.fontSize) ? curr : prev
+      );
+      reader.fontSize = closest;
+      contentEl.className = contentEl.className.replace(/size-\d+/g, '').trim();
+      contentEl.classList.add('size-' + reader.fontSize);
+      document.getElementById('fontSizeLabel').textContent = reader.fontSize;
+      saveProgress();
+    }
+
+    function toggleTheme() {
+      reader.theme = reader.theme === 'dark' ? 'light' : 'dark';
+      document.body.classList.toggle('reader-dark', reader.theme === 'dark');
+      saveProgress();
+    }
+
+    prevBtn.addEventListener('click', goPrev);
+    nextBtn.addEventListener('click', goNext);
+    document.getElementById('fontDec').addEventListener('click', () => applyFontSize(reader.fontSize - 2));
+    document.getElementById('fontInc').addEventListener('click', () => applyFontSize(reader.fontSize + 2));
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+    // --- Touch / swipe support ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    contentEl.addEventListener('touchstart', function(e) {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    contentEl.addEventListener('touchend', function(e) {
+      const dx = e.changedTouches[0].screenX - touchStartX;
+      const dy = e.changedTouches[0].screenY - touchStartY;
+      // Only handle horizontal swipes longer than 40px, ignore vertical scroll
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx > 0) goPrev();
+        else goNext();
+      }
+    }, { passive: true });
+
+    // Tap zones for mobile (left third / right third)
+    document.getElementById('tapLeft').addEventListener('click', goPrev);
+    document.getElementById('tapRight').addEventListener('click', goNext);
+
+    // --- Initial load ---
+    loadPage(reader.currentPage);
+
+    // Apply initial theme
+    if (reader.theme === 'dark') document.body.classList.add('reader-dark');
+    applyFontSize(reader.fontSize);
+
+    window.addEventListener('beforeunload', saveProgress);
+  </script>
+</body>
+</html>

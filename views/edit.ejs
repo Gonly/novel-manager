@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✏️ 编辑书籍 - 小说管理站</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">📚 小说管理站</a>
+      <nav>
+        <a href="/">书库</a>
+        <a href="/book/add">+ 新增</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="form-page">
+      <h1>✏️ 编辑《<%= book.title %>》</h1>
+
+      <% if (errors.length) { %>
+      <ul class="errors">
+        <% errors.forEach(function(err) { %>
+        <li><%= err %></li>
+        <% }); %>
+      </ul>
+      <% } %>
+
+      <form method="POST" action="/book/<%= book.id %>/edit">
+        <div class="form-group">
+          <label for="title">书名 *</label>
+          <input type="text" id="title" name="title" value="<%= book.title %>" required>
+        </div>
+        <div class="form-group">
+          <label for="author">作者</label>
+          <input type="text" id="author" name="author" value="<%= book.author %>">
+        </div>
+        <div class="form-group">
+          <label for="description">简介</label>
+          <textarea id="description" name="description"><%= book.description %></textarea>
+        </div>
+        <div class="form-group">
+          <label>文件</label>
+          <p style="color:var(--text-dim);font-size:.9rem;">
+            📄 <%= book.filename %>（<%= Math.round(book.file_size / 1024) %> KB，<%= book.total_pages %> 页）
+          </p>
+          <small>如需更换文件，请删除后重新添加</small>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">💾 保存修改</button>
+          <a href="/" class="btn btn-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container"><span>📖 私人小说管理站</span></div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
