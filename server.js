@@ -141,8 +141,10 @@ async function saveNovelFile(buffer, originalName) {
   const name = `${ts}_${originalName}`;
   if (IS_VERCEL) {
     const { put } = require('@vercel/blob');
+    console.log('[saveNovelFile] putting to Blob:', `novels/${name}`, 'size:', buffer.length);
     const blob = await put(`novels/${name}`, buffer, { access: 'private' });
-    return blob.downloadUrl;  // downloadUrl 含鉴权 token，可直接 fetch
+    console.log('[saveNovelFile] blob result — url:', blob.url?.substring(0, 80), 'downloadUrl:', blob.downloadUrl?.substring(0, 80), 'pathname:', blob.pathname);
+    return blob.downloadUrl;
   }
   fs.writeFileSync(path.join(NOVELS_DIR, name), buffer);
   return name;
@@ -150,9 +152,14 @@ async function saveNovelFile(buffer, originalName) {
 
 async function readNovelFile(identifier) {
   if (IS_VERCEL) {
-    // downloadUrl 已含永久鉴权 token，直接 fetch
+    console.log('[readNovelFile] fetching blob, url:', identifier?.substring(0, 120));
     const resp = await fetch(identifier);
-    if (!resp.ok) throw new Error(`blob fetch failed: ${resp.status}`);
+    console.log('[readNovelFile] response status:', resp.status, 'ok:', resp.ok);
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error('[readNovelFile] ERROR response body:', errText?.substring(0, 200));
+      throw new Error(`blob fetch failed: ${resp.status}`);
+    }
     const buf = await resp.arrayBuffer();
     try {
       return new TextDecoder('utf-8', { fatal: true }).decode(buf);
@@ -299,15 +306,13 @@ app.post('/book/add', (req, res) => {
     if (errors.length) return res.render('add', { errors, title, author, description });
 
     try {
+      console.log('[upload] file:', req.file.originalname, 'size:', req.file.size);
       const buffer = IS_VERCEL ? req.file.buffer : fs.readFileSync(req.file.path);
       const identifier = await saveNovelFile(buffer, req.file.originalname);
+      console.log('[upload] identifier stored:', identifier?.substring(0, 120));
 
-      // Read content (pass identifier for both modes)
-      const content = IS_VERCEL ? buffer.toString('utf-8') : readNovelFile(identifier);
-      // Actually for Vercel we need to read content differently - buffer is already in memory
       let contentStr;
       if (IS_VERCEL) {
-        // Try utf-8 first, fall back to gbk
         try { contentStr = buffer.toString('utf-8'); }
         catch { contentStr = buffer.toString('latin1'); }
       } else {
@@ -322,11 +327,13 @@ app.post('/book/add', (req, res) => {
         `INSERT INTO books (title, author, description, filename, file_size, total_chars, total_pages) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [title, author, description, identifier, fileSize, totalChars, pages.length]
       );
+      console.log('[upload] book saved to DB, id:', result.lastInsertRowid);
       const bookId = result.lastInsertRowid;
       await dbRun('INSERT INTO reading_progress (book_id) VALUES (?)', [bookId]);
 
       res.redirect('/');
     } catch (e) {
+      console.error('[upload] ERROR:', e.message, e.stack?.substring(0, 300));
       errors.push('保存失败: ' + e.message);
       res.render('add', { errors, title, author, description });
     }
@@ -377,7 +384,7 @@ app.get('/book/:id/read', async (req, res) => {
 app.get('/api/book/:id/page/:pageNum', async (req, res) => {
   const book = await dbGet('SELECT * FROM books WHERE id = ?', [req.params.id]);
   if (!book) return res.status(404).json({ error: 'not found' });
-
+  console.log('[api/page] book:', book.id, 'title:', book.title, 'filename:', (book.filename || '').substring(0, 120));
   try {
     const content = await readNovelFile(book.filename);
     const pages = splitIntoPages(content, CHARS_PER_PAGE);
