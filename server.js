@@ -142,23 +142,16 @@ async function saveNovelFile(buffer, originalName) {
   if (IS_VERCEL) {
     const { put } = require('@vercel/blob');
     const blob = await put(`novels/${name}`, buffer, { access: 'private' });
-    return blob.url;     // stored as full URL (含鉴权 token)
+    return blob.downloadUrl;  // downloadUrl 含鉴权 token，可直接 fetch
   }
   fs.writeFileSync(path.join(NOVELS_DIR, name), buffer);
-  return name;           // stored as local filename
+  return name;
 }
 
 async function readNovelFile(identifier) {
   if (IS_VERCEL) {
-    let url = identifier;
-    try {
-      // Try to refresh the signed URL via SDK
-      const { get } = require('@vercel/blob');
-      const blob = await get(identifier, { access: 'private' });
-      url = blob.downloadUrl || blob.url;
-    } catch {}
-    // Fetch content (url already contains auth token for private blobs)
-    const resp = await fetch(url);
+    // downloadUrl 已含永久鉴权 token，直接 fetch
+    const resp = await fetch(identifier);
     if (!resp.ok) throw new Error(`blob fetch failed: ${resp.status}`);
     const buf = await resp.arrayBuffer();
     try {
