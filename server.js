@@ -53,6 +53,7 @@ async function initDatabase() {
         total_pages INTEGER DEFAULT 0,
         rating      INTEGER DEFAULT 0,
         is_favorite INTEGER DEFAULT 0,
+        tags        TEXT    DEFAULT '',
         created_at  TEXT    DEFAULT (datetime('now','localtime')),
         updated_at  TEXT    DEFAULT (datetime('now','localtime'))
       )
@@ -70,6 +71,7 @@ async function initDatabase() {
     // Migrate existing tables — add columns if they don't exist
     try { await remoteDb.execute("ALTER TABLE books ADD COLUMN rating INTEGER DEFAULT 0"); } catch {}
     try { await remoteDb.execute("ALTER TABLE books ADD COLUMN is_favorite INTEGER DEFAULT 0"); } catch {}
+    try { await remoteDb.execute("ALTER TABLE books ADD COLUMN tags TEXT DEFAULT ''"); } catch {}
   } else {
     const initSqlJs = require('sql.js');
     SQL = await initSqlJs();
@@ -83,12 +85,13 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, author TEXT DEFAULT '',
       description TEXT DEFAULT '', filename TEXT NOT NULL, file_size INTEGER DEFAULT 0,
       total_chars INTEGER DEFAULT 0, total_pages INTEGER DEFAULT 0,
-      rating INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0,
+      rating INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, tags TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now','localtime')),
       updated_at TEXT DEFAULT (datetime('now','localtime')))`);
     // Migrate existing tables
     try { localDb.run("ALTER TABLE books ADD COLUMN rating INTEGER DEFAULT 0"); } catch {}
     try { localDb.run("ALTER TABLE books ADD COLUMN is_favorite INTEGER DEFAULT 0"); } catch {}
+    try { localDb.run("ALTER TABLE books ADD COLUMN tags TEXT DEFAULT ''"); } catch {}
     localDb.run(`CREATE TABLE IF NOT EXISTS reading_progress (
       id INTEGER PRIMARY KEY AUTOINCREMENT, book_id INTEGER NOT NULL UNIQUE,
       current_page INTEGER DEFAULT 1, font_size INTEGER DEFAULT 18, theme TEXT DEFAULT 'light',
@@ -312,21 +315,29 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
+  const tag = (req.query.tag || '').trim();
   const showFav = req.query.fav === '1';
   let books;
-  if (showFav) {
+  if (tag) {
+    books = await dbAll("SELECT * FROM books WHERE tags LIKE ? ORDER BY updated_at DESC", [`%${tag}%`]);
+  } else if (showFav) {
     books = await dbAll("SELECT * FROM books WHERE is_favorite = 1 ORDER BY updated_at DESC");
   } else if (q) {
-    books = await dbAll("SELECT * FROM books WHERE (title LIKE ? OR author LIKE ?) ORDER BY updated_at DESC", [`%${q}%`, `%${q}%`]);
+    books = await dbAll("SELECT * FROM books WHERE (title LIKE ? OR author LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC", [`%${q}%`, `%${q}%`, `%${q}%`]);
   } else {
     books = await dbAll("SELECT * FROM books ORDER BY updated_at DESC");
   }
-  books.forEach(b => b.coverColor = coverColorClass(b.id));
-  res.render('index', { books, q, formatSize, showFav });
+  books.forEach(b => {
+    b.coverColor = coverColorClass(b.id);
+    b.tagList = (b.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  });
+  // Collect all unique tags from displayed books for tag cloud
+  const allTags = [...new Set(books.flatMap(b => b.tagList))].sort();
+  res.render('index', { books, q, tag, formatSize, showFav, allTags });
 });
 
 app.get('/book/add', (req, res) => {
-  res.render('add', { errors: [], title: '', author: '', description: '' });
+  res.render('add', { errors: [], title: '', author: '', description: '', tags: '' });
 });
 
 app.post('/book/add', (req, res) => {
@@ -344,6 +355,7 @@ app.post('/book/add', (req, res) => {
     if (!title) errors.push('书名不能为空');
     if (!req.file) errors.push('请选择要上传的 txt 文件');
     if (errors.length) return res.render('add', { errors, title, author, description });
+    const tags = (req.body.tags || '').trim();
 
     try {
       console.log('[upload] file:', req.file.originalname, 'size:', req.file.size);
@@ -366,8 +378,8 @@ app.post('/book/add', (req, res) => {
       const fileSize = IS_VERCEL ? buffer.length : req.file.size;
 
       const result = await dbRun(
-        `INSERT INTO books (title, author, description, filename, file_size, total_chars, total_pages) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [title, author, description, identifier, fileSize, totalChars, pages.length]
+        `INSERT INTO books (title, author, description, filename, file_size, total_chars, total_pages, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [title, author, description, identifier, fileSize, totalChars, pages.length, tags]
       );
       console.log('[upload] book saved to DB, id:', result.lastInsertRowid);
       const bookId = result.lastInsertRowid;
@@ -395,11 +407,12 @@ app.post('/book/:id/edit', async (req, res) => {
   const title = (req.body.title || '').trim();
   const author = (req.body.author || '').trim();
   const description = (req.body.description || '').trim();
+  const tags = (req.body.tags || '').trim();
   const errors = [];
   if (!title) errors.push('书名不能为空');
-  if (errors.length) return res.render('edit', { book: { ...book, title, author, description }, errors });
+  if (errors.length) return res.render('edit', { book: { ...book, title, author, description, tags }, errors });
 
-  await dbRun("UPDATE books SET title=?, author=?, description=?, updated_at=datetime('now','localtime') WHERE id=?", [title, author, description, req.params.id]);
+  await dbRun("UPDATE books SET title=?, author=?, description=?, tags=?, updated_at=datetime('now','localtime') WHERE id=?", [title, author, description, tags, req.params.id]);
   res.redirect('/');
 });
 
@@ -420,6 +433,7 @@ app.get('/book/:id/read', async (req, res) => {
   const book = await dbGet('SELECT * FROM books WHERE id = ?', [req.params.id]);
   if (!book) return res.status(404).send('书籍不存在');
   const progress = await getOrCreateProgress(book.id);
+  book.tagList = (book.tags || '').split(',').map(t => t.trim()).filter(Boolean);
   res.render('reader', { book, progress, totalPages: book.total_pages });
 });
 

@@ -40,6 +40,12 @@
           <input type="text" id="author" name="author" value="<%= author %>" placeholder="输入作者（可选）">
         </div>
         <div class="form-group">
+          <label for="tags">标签</label>
+          <input type="text" id="tags" name="tags" value="<%= tags %>" placeholder="玄幻, 仙侠, 穿越（多个标签用逗号分隔）">
+          <small>多个标签用逗号分隔，便于搜索筛选</small>
+        </div>
+
+        <div class="form-group">
           <label for="description">简介</label>
           <textarea id="description" name="description" placeholder="输入书籍简介（可选）"><%= description %></textarea>
         </div>

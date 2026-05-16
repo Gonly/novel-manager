@@ -27,6 +27,13 @@
                   id="favBtn" title="收藏" onclick="toggleFav()">❤</button>
         </h1>
         <span class="book-author"><%= book.author || '佚名' %></span>
+        <% if (book.tagList.length) { %>
+        <div class="book-tags" style="margin-top:2px;">
+          <% book.tagList.forEach(function(t) { %>
+            <a href="/?tag=<%= encodeURIComponent(t) %>" class="tag-chip"><%= t %></a>
+          <% }); %>
+        </div>
+        <% } %>
         <span class="reader-stars" id="readerStars">
           <% for (let i=1; i<=5; i++) { %>
             <span class="star <%= i <= (book.rating||0) ? 'on' : '' %>"

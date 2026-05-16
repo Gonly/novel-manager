@@ -470,6 +470,46 @@ body.reader-dark .reader-controls select {
 .reader-content.size-32 { font-size: 32px; }
 
 /* ============================================================
+   Tags
+   ============================================================ */
+.tag-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  margin: 1px 3px 1px 0;
+  font-size: .72rem;
+  border-radius: 4px;
+  background: #e8e6e0;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.tag-chip:hover { background: #d4d0c8; }
+.tag-chip.active { background: var(--primary); color: #fff; }
+.tag-chip.clear { background: transparent; border: 1px solid var(--border); font-size: .7rem; }
+
+body.reader-dark .tag-chip { background: #3a3a3a; color: #d4d4d4; }
+body.reader-dark .tag-chip:hover { background: #4a4a4a; }
+body.reader-dark .tag-chip.active { background: var(--primary); }
+
+.tag-cloud {
+  padding: 10px 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.tag-cloud .tag-chip { font-size: .78rem; padding: 2px 10px; }
+
+.book-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 2px 0;
+}
+.book-tags .tag-chip { font-size: .65rem; padding: 0 5px; }
+
+/* ============================================================
    Favorite button (heart) – overlay on book cover
    ============================================================ */
 .fav-btn {
