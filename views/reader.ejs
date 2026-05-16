@@ -30,7 +30,7 @@
         <div class="book-tags" style="margin-top:2px;">
           <% if (book.tagList.length) { %>
             <% book.tagList.forEach(function(t) { %>
-              <a href="/?tag=<%= encodeURIComponent(t) %>" class="tag-chip"><%= t %></a>
+              <span class="tag-chip" onclick="location.href='/?tag=<%= encodeURIComponent(t) %>'"><%= t %></span>
             <% }); %>
           <% } %>
         </div>
