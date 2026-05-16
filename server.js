@@ -299,8 +299,9 @@ const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
-    if (!file.originalname.toLowerCase().endsWith('.txt')) {
-      return cb(new Error('仅支持 .txt 文件'));
+    const name = file.originalname.toLowerCase();
+    if (!name.endsWith('.txt') && !name.endsWith('.zip')) {
+      return cb(new Error('仅支持 .txt 或 .zip 文件'));
     }
     cb(null, true);
   }
@@ -358,38 +359,64 @@ app.post('/book/add', (req, res) => {
     const tags = (req.body.tags || '').trim();
 
     try {
-      console.log('[upload] file:', req.file.originalname, 'size:', req.file.size);
       const buffer = IS_VERCEL ? req.file.buffer : fs.readFileSync(req.file.path);
-      const identifier = await saveNovelFile(buffer, req.file.originalname);
-      console.log('[upload] identifier stored:', identifier?.substring(0, 120));
+      const isZip = req.file.originalname.toLowerCase().endsWith('.zip');
 
-      let contentStr;
-      if (IS_VERCEL) {
-        try { contentStr = buffer.toString('utf-8'); }
-        catch { contentStr = buffer.toString('latin1'); }
+      if (isZip) {
+        // --- ZIP 上传：解压并添加每个 txt 文件 ---
+        const AdmZip = require('adm-zip');
+        const zip = new AdmZip(buffer);
+        const entries = zip.getEntries().filter(e => !e.isDirectory && e.name.toLowerCase().endsWith('.txt'));
+        if (entries.length === 0) { errors.push('压缩包中未找到 txt 文件'); return res.render('add', { errors, title, author, description, tags }); }
+
+        for (const entry of entries) {
+          const bookTitle = entry.name.replace(/\.txt$/i, '');
+          const entryBuf = entry.getData();
+          const identifier = await saveNovelFile(entryBuf, entry.name);
+          let contentStr;
+          try { contentStr = entryBuf.toString('utf-8'); }
+          catch { contentStr = entryBuf.toString('latin1'); }
+          contentStr = cleanupText(contentStr);
+          const totalChars = countDisplayChars(contentStr);
+          const pages = splitIntoPages(contentStr, CHARS_PER_PAGE);
+          const result = await dbRun(
+            `INSERT INTO books (title, author, description, filename, file_size, total_chars, total_pages, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [bookTitle, author, description, identifier, entryBuf.length, totalChars, pages.length, tags]
+          );
+          await dbRun('INSERT INTO reading_progress (book_id) VALUES (?)', [result.lastInsertRowid]);
+          console.log('[upload-zip] added:', bookTitle, 'id:', result.lastInsertRowid);
+        }
+        res.redirect('/');
       } else {
-        contentStr = await readNovelFile(identifier);
+        // --- TXT 上传 ---
+        const identifier = await saveNovelFile(buffer, req.file.originalname);
+        console.log('[upload] identifier stored:', identifier?.substring(0, 120));
+
+        let contentStr;
+        if (IS_VERCEL) {
+          try { contentStr = buffer.toString('utf-8'); }
+          catch { contentStr = buffer.toString('latin1'); }
+        } else {
+          contentStr = await readNovelFile(identifier);
+        }
+        contentStr = cleanupText(contentStr);
+
+        const totalChars = countDisplayChars(contentStr);
+        const pages = splitIntoPages(contentStr, CHARS_PER_PAGE);
+        const fileSize = IS_VERCEL ? buffer.length : req.file.size;
+
+        const result = await dbRun(
+          `INSERT INTO books (title, author, description, filename, file_size, total_chars, total_pages, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [title, author, description, identifier, fileSize, totalChars, pages.length, tags]
+        );
+        console.log('[upload] book saved to DB, id:', result.lastInsertRowid);
+        await dbRun('INSERT INTO reading_progress (book_id) VALUES (?)', [result.lastInsertRowid]);
+        res.redirect('/');
       }
-      // 清洗：去掉段落中间的硬换行
-      contentStr = cleanupText(contentStr);
-
-      const totalChars = countDisplayChars(contentStr);
-      const pages = splitIntoPages(contentStr, CHARS_PER_PAGE);
-      const fileSize = IS_VERCEL ? buffer.length : req.file.size;
-
-      const result = await dbRun(
-        `INSERT INTO books (title, author, description, filename, file_size, total_chars, total_pages, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [title, author, description, identifier, fileSize, totalChars, pages.length, tags]
-      );
-      console.log('[upload] book saved to DB, id:', result.lastInsertRowid);
-      const bookId = result.lastInsertRowid;
-      await dbRun('INSERT INTO reading_progress (book_id) VALUES (?)', [bookId]);
-
-      res.redirect('/');
     } catch (e) {
       console.error('[upload] ERROR:', e.message, e.stack?.substring(0, 300));
       errors.push('保存失败: ' + e.message);
-      res.render('add', { errors, title, author, description });
+      res.render('add', { errors, title, author, description, tags });
     }
   });
 });
