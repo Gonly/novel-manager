@@ -57,22 +57,24 @@
           </div>
           <div class="book-info">
             <div class="book-title" title="<%= book.title %>"><%= book.title %></div>
-            <div class="book-author"><%= book.author || '佚名' %></div>
-            <% if (book.tagList.length) { %>
-            <div class="book-tags">
-              <% book.tagList.forEach(function(t) { %>
-                <a href="/?tag=<%= encodeURIComponent(t) %>" class="tag-chip"><%= t %></a>
-              <% }); %>
-            </div>
-            <% } %>
-            <div class="book-stars" data-rating="<%= book.rating || 0 %>">
-              <% for (let i=1; i<=5; i++) { %>
-                <span class="star <%= i <= (book.rating||0) ? 'on' : '' %>">★</span>
+            <div class="book-info-row">
+              <span class="book-author"><%= book.author || '佚名' %></span>
+              <% if (book.tagList.length) { %>
+              <span class="book-tags">
+                <% book.tagList.forEach(function(t) { %>
+                  <a href="/?tag=<%= encodeURIComponent(t) %>" class="tag-chip"><%= t %></a>
+                <% }); %>
+              </span>
               <% } %>
-            </div>
-            <div class="book-meta">
-              <span><%= book.total_pages %> 页</span>
-              <span><%= formatSize(book.file_size) %></span>
+              <span class="book-stars" data-rating="<%= book.rating || 0 %>">
+                <% for (let i=1; i<=5; i++) { %>
+                  <span class="star <%= i <= (book.rating||0) ? 'on' : '' %>">★</span>
+                <% } %>
+              </span>
+              <span class="book-meta">
+                <span><%= book.total_pages %> 页</span>
+                <span><%= formatSize(book.file_size) %></span>
+              </span>
             </div>
           </div>
         </a>
