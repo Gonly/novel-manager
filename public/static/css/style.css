@@ -506,7 +506,9 @@ body.reader-dark .tag-chip.active { background: var(--primary); }
   flex-wrap: wrap;
   gap: 2px;
   margin: 2px 0;
+  min-height: 0;
 }
+.book-tags:empty { margin: 0; }
 .book-tags .tag-chip { font-size: .65rem; padding: 0 5px; }
 
 /* ============================================================
